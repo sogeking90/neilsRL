@@ -4,6 +4,7 @@ import libtcodpy as libtcod
 SCREEN_WIDTH = 80  
 SCREEN_HEIGHT = 50
 
+# size of the map
 MAP_WIDTH = 80
 MAP_HEIGHT = 45
 
@@ -11,6 +12,14 @@ LIMIT_FPS = 20     # Max FPS
 
 color_dark_wall = libtcod.Color(0, 0, 100)
 color_dark_ground = libtcod.Color(50, 50, 150)
+class Tile:
+    # Tile class. For walls and floor. block vision? Passable?
+    def __init__(self, blocked, block_sight = None):
+        self.blocked = blocked
+
+        # If a tile blocks movement it also blocks sight by default. This can be changed per tile.
+        if block_sight is None: block_sight = blocked
+        self.block_sight = block_sight
 
 class GameObject:
     # This is a generic object: a player, a monster and item etc...
@@ -23,8 +32,9 @@ class GameObject:
 
     def move(self, dx, dy):
         # Move by given amount.
-        self.x += dx
-        self.y += dy
+        if not map[self.x + dx][self.y + dy].blocked:
+            self.x += dx
+            self.y += dy
 
     def draw(self):
         # Set the colour and draw the character that represents the object
@@ -35,37 +45,47 @@ class GameObject:
         # Erase the character that represents the object.
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
         
-class Tile:
-    # Tile class. For walls and floor. block vision? Passable?
-    def __init__(self, blocked, block_sight = None):
-        self.blocked = blocked
-
-        # If a tile blocks movement it also blocks sight by default. This can be changed per tile.
-        if block_sight is None:
-            block_sight = blocked
-        self.block_sight = block_sight
-
-
 def make_map():
     global map
+
     #fill map with unblocked tiles
     map = [[ Tile(False)
-        for y in range(MAP_HEIGHT)]
-            for x in range(MAP_WIDTH)]
+        for y in range(MAP_HEIGHT) ]
+            for x in range(MAP_WIDTH) ]
+
     # Place two pillars to test map
     map[30][22].blocked = True
     map[30][22].block_sight = True
-    map[50[22].blocked = True
+    map[50][22].blocked = True
     map[50][22].block_sight = True
 
+def render_all():
+    # Go through all tiles and set their colour
+    global color_light_wall
+    global color_light_ground
+
+    for y in range(MAP_HEIGHT):
+        for x in range(MAP_WIDTH):
+            wall = map[x][y].block_sight
+            if wall:
+                libtcod.console_set_char_background(con, x, y, color_dark_wall, libtcod.BKGND_SET )
+            else:
+                libtcod.console_set_char_background(con, x, y, color_dark_ground, libtcod.BKGND_SET )
+        
+    # draw all the objects
+    for obj in objects:
+        obj.draw()
+
+    # blit the contents of the con console to the root console
+    libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
 
 def handle_keys():
-    global playerx, playery
-
     key = libtcod.console_wait_for_keypress(True)
+
     if key.vk == libtcod.KEY_ENTER and key.lalt:
         # alt + enter toggle fullscreen
         libtcod.console_set_fullscreen(not libtcod.console_is_fullscreen())
+
     elif key.vk == libtcod.KEY_ESCAPE:
         return True  #exit game
 
@@ -98,17 +118,20 @@ player = GameObject(SCREEN_WIDTH/2, SCREEN_HEIGHT/2, '@', libtcod.white)
 
 # Create a new NPC
 npc = GameObject(SCREEN_WIDTH/2 - 5, SCREEN_HEIGHT/2, '@', libtcod.yellow)
+
+# List of objects to be drawn
 objects = [npc, player]
+
+make_map()
+
 # ---------------- 
 # main game loop.
 # ----------------
 
 while not libtcod.console_is_window_closed():
     # Draw all objects in the list.
-    for obj in objects:
-        obj.draw()
+    render_all()
 
-    libtcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
     libtcod.console_flush()
 
     # Erase all objects at their old location
